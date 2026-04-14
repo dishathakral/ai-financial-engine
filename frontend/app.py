@@ -1,6 +1,28 @@
 import streamlit as st
 import requests
 import pandas as pd
+import subprocess
+import socket
+import time
+import sys
+
+# --- HACKATHON SUBPROCESS HACK ---
+# Silently boot the FastAPI server in the background if it isn't running yet.
+def is_port_in_use(port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('localhost', port)) == 0
+
+if "backend_started" not in st.session_state:
+    if not is_port_in_use(8000):
+        with st.spinner("Booting AI Engine Backend..."):
+            subprocess.Popen(
+                [sys.executable, "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            time.sleep(3) # Wait for uvicorn to bind
+    st.session_state.backend_started = True
+# ---------------------------------
 
 API_URL = "http://localhost:8000"
 
