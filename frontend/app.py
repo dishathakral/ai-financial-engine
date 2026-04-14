@@ -6,6 +6,8 @@ import socket
 import time
 import sys
 
+st.set_page_config(page_title="AI Financial Intelligence", layout="wide", page_icon="💸")
+
 # --- HACKATHON SUBPROCESS HACK ---
 # Silently boot the FastAPI server in the background if it isn't running yet.
 def is_port_in_use(port):
@@ -25,8 +27,6 @@ if "backend_started" not in st.session_state:
 # ---------------------------------
 
 API_URL = "http://localhost:8000"
-
-st.set_page_config(page_title="AI Financial Intelligence", layout="wide", page_icon="💸")
 
 # Modern styling override (for hackathon wow-factor)
 st.markdown("""
