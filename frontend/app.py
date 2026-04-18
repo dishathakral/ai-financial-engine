@@ -1,11 +1,16 @@
 import streamlit as st
 import requests
 import pandas as pd
-
+import os
 st.set_page_config(page_title="AI Financial Intelligence", layout="wide", page_icon="💸")
 
-API_URL = "http://localhost:8000"
+# API_URL = "http://localhost:8000"
 
+
+API_URL = os.getenv(
+    "API_URL",
+    "http://localhost:8000"   # fallback for local
+)
 # Modern styling override (for hackathon wow-factor)
 st.markdown("""
 <style>
