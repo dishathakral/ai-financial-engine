@@ -7,7 +7,7 @@ from .services.ai_engine import generate_insights, chat_with_context
 from .services.storage import (
     generate_file_hash, check_duplicate_session, create_session, 
     get_all_sessions, get_session, update_session, update_learned_merchants,
-    rename_session
+    rename_session, delete_session
 )
 from pydantic import BaseModel
 
@@ -72,6 +72,8 @@ async def analyze_statement(file: UploadFile = File(...), password: str = Form(N
             "stats": stats,
             "transactions": transactions
         }
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -123,6 +125,12 @@ async def process_rename_session(req: RenameRequest):
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/sessions/{session_id}")
+async def remove_session(session_id: str):
+    if delete_session(session_id):
+        return {"status": "deleted"}
+    raise HTTPException(status_code=404, detail="Session not found")
 
 @app.post("/session/chat")
 async def session_chat(req: ChatRequest):

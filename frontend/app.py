@@ -1,30 +1,8 @@
 import streamlit as st
 import requests
 import pandas as pd
-import subprocess
-import socket
-import time
-import sys
 
 st.set_page_config(page_title="AI Financial Intelligence", layout="wide", page_icon="💸")
-
-# --- HACKATHON SUBPROCESS HACK ---
-# Silently boot the FastAPI server in the background if it isn't running yet.
-def is_port_in_use(port):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        return s.connect_ex(('localhost', port)) == 0
-
-if "backend_started" not in st.session_state:
-    if not is_port_in_use(8000):
-        with st.spinner("Booting AI Engine Backend..."):
-            subprocess.Popen(
-                [sys.executable, "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            )
-            time.sleep(3) # Wait for uvicorn to bind
-    st.session_state.backend_started = True
-# ---------------------------------
 
 API_URL = "http://localhost:8000"
 
@@ -95,9 +73,35 @@ with st.sidebar:
             if sessions:
                 options = { s["session_id"]: f"v{s['version']} - {s['file_name']} (Spent ₹{s.get('summary', {}).get('expense', 0):,.0f})" for s in sessions }
                 selected = st.selectbox("Load Previous Session", options=list(options.keys()), format_func=lambda x: options[x])
-                if st.button("Load Session", use_container_width=True):
-                    if load_session(selected):
-                        st.rerun()
+                btn_col1, btn_col2 = st.columns(2)
+                with btn_col1:
+                    if st.button("Load Session", use_container_width=True):
+                        if load_session(selected):
+                            st.rerun()
+                with btn_col2:
+                    if st.button("🗑️ Delete", use_container_width=True, type="primary"):
+                        st.session_state.confirm_delete = selected
+                
+                if st.session_state.get("confirm_delete") == selected:
+                    st.warning(f"Delete **{options[selected]}**?")
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        if st.button("✅ Yes, Delete", use_container_width=True):
+                            resp_del = requests.delete(f"{API_URL}/sessions/{selected}")
+                            if resp_del.status_code == 200:
+                                st.session_state.confirm_delete = None
+                                if st.session_state.session_id == selected:
+                                    st.session_state.session_id = None
+                                    st.session_state.transactions = []
+                                    st.session_state.stats = {}
+                                    st.session_state.insights = ""
+                                    st.session_state.chat_history = []
+                                st.success("Session deleted!")
+                                st.rerun()
+                    with c2:
+                        if st.button("❌ Cancel", use_container_width=True):
+                            st.session_state.confirm_delete = None
+                            st.rerun()
             else:
                 st.info("No saved sessions yet.")
     except requests.exceptions.RequestException:
@@ -140,8 +144,11 @@ if uploaded_file is not None and not st.session_state.session_id:
                         st.session_state.transactions = data.get("transactions", [])
                         st.session_state.stats = data.get("stats", {})
                         st.rerun()
+                    except requests.exceptions.HTTPError as e:
+                        error_detail = e.response.json().get("detail", str(e)) if "application/json" in e.response.headers.get("content-type", "") else str(e)
+                        st.error(f"Engine Error: {error_detail}")
                     except Exception as e:
-                        st.error(f"Error: {e}")
+                        st.error(f"System Error: {e}")
     else:
         if st.button("Process Statement", use_container_width=True):
             with st.spinner("Scanning Document..."):
@@ -164,8 +171,11 @@ if uploaded_file is not None and not st.session_state.session_id:
                         st.session_state.transactions = data.get("transactions", [])
                         st.session_state.stats = data.get("stats", {})
                         st.rerun()
+                    except requests.exceptions.HTTPError as e:
+                        error_detail = e.response.json().get("detail", str(e)) if "application/json" in e.response.headers.get("content-type", "") else str(e)
+                        st.error(f"Engine Error: {error_detail}")
                     except Exception as e:
-                        st.error(f"Error: {e}")
+                        st.error(f"System Error: {e}")
 
 # If we have data, display it
 if st.session_state.session_id and st.session_state.transactions:
@@ -228,7 +238,7 @@ if st.session_state.session_id and st.session_state.transactions:
     st.divider()
     
     # Sections 2 & 3: Alerts and Actions generated by LLM
-    if st.session_state.insights:
+    if st.session_state.insights and not st.session_state.insights.startswith("Error"):
         st.subheader("Section 2 & 3: ⚠️ Alerts & 💡 Actions")
         st.markdown(st.session_state.insights)
     else:

@@ -120,6 +120,13 @@ def rename_session(session_id: str, new_name: str):
         data['last_updated'] = datetime.now().isoformat()
         with open(os.path.join(SESSIONS_DIR, f"session_{session_id}.json"), 'w') as f:
             json.dump(data, f, indent=2)
+
+def delete_session(session_id: str) -> bool:
+    filepath = os.path.join(SESSIONS_DIR, f"session_{session_id}.json")
+    if os.path.exists(filepath):
+        os.remove(filepath)
+        return True
+    return False
             
 def get_learned_merchants() -> dict:
     if os.path.exists(LEARNED_MERCHANTS_FILE):

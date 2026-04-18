@@ -1,4 +1,5 @@
 import json
+import time
 import requests
 from ..config import OPENROUTER_API_KEY
 
@@ -16,12 +17,26 @@ def call_openrouter(messages: list[dict]) -> str:
         "messages": messages
     }
     
-    try:
-        response = requests.post(url, headers=headers, json=payload, timeout=20)
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        return f"Error communicating with AI model: {e}"
+    # Retry up to 3 times with exponential backoff for rate limits (429)
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            if response.status_code == 429:
+                wait_time = (attempt + 1) * 3  # 3s, 6s, 9s
+                time.sleep(wait_time)
+                continue
+            response.raise_for_status()
+            return response.json()["choices"][0]["message"]["content"].strip()
+        except requests.exceptions.HTTPError as e:
+            if attempt < max_retries - 1 and response.status_code == 429:
+                time.sleep((attempt + 1) * 3)
+                continue
+            return f"Error communicating with AI model: {e}"
+        except Exception as e:
+            return f"Error communicating with AI model: {e}"
+    
+    return "⚠️ The AI service is currently rate-limited. Please wait a moment and try again."
 
 def generate_insights(stats: dict) -> str:
     system_prompt = "You are an expert AI financial decision engine. Use ONLY the provided merchants and numbers. Do not invent data, hallucinate merchants, or guess numbers not in the payload. Your decisions must be deterministic."
