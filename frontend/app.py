@@ -11,6 +11,8 @@ API_URL = os.getenv(
     "API_URL",
     "http://localhost:8000"   # fallback for local
 )
+
+st.write("API URL:", API_URL)
 # Modern styling override (for hackathon wow-factor)
 st.markdown("""
 <style>
