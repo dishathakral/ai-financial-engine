@@ -14,6 +14,7 @@ backend/data/**
 !backend/data/.gitkeep
 !backend/data/sessions/
 !backend/data/sessions/.gitkeep
+README_v2.md
 
 # Test & scratch files
 test_*.py

@@ -123,21 +123,6 @@ with st.sidebar:
 st.title("💸 AI Financial Intelligence System")
 st.markdown("Upload your bank statement to get instant categorization and AI insights.")
 
-# --- Demo Statement Download ---
-import os as _os
-demo_path = _os.path.join(_os.path.dirname(__file__), "demo_statement.xlsx")
-if _os.path.exists(demo_path):
-    with open(demo_path, "rb") as demo_f:
-        st.download_button(
-            label="📥 Download Demo Bank Statement",
-            data=demo_f.read(),
-            file_name="demo_bank_statement.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            help="Download a sample SBI-format bank statement to test the system instantly.",
-            use_container_width=True
-        )
-    st.caption("*No bank statement handy? Download our demo file above to try the system instantly.*")
-
 uploaded_file = st.file_uploader("Upload your Bank Statement (Excel)", type=["xlsx", "xls"])
 document_password = st.text_input("Document Password (if any)", type="password")
 
@@ -395,34 +380,6 @@ if st.session_state.session_id and st.session_state.transactions:
         with chat_container:
             for msg in st.session_state.chat_history:
                 st.chat_message(msg["role"]).write(msg["content"])
-        
-        # --- Template Questions ---
-        if not st.session_state.chat_history:
-            st.markdown("###### 💡 Try asking:")
-            template_questions = [
-                "What kind of spender am I?",
-                "Where is most of my money going?",
-                "How can I save ₹5,000 this month?",
-                "Am I investing enough?",
-                "What's my biggest financial risk?",
-                "Give me a 3-step plan to fix my finances"
-            ]
-            # Render as clickable buttons in a 3-column grid
-            tq_cols = st.columns(3)
-            for i, q in enumerate(template_questions):
-                with tq_cols[i % 3]:
-                    if st.button(q, key=f"tq_{i}", use_container_width=True):
-                        st.session_state.chat_history.append({"role": "user", "content": q})
-                        with st.spinner("Thinking..."):
-                            try:
-                                chat_payload = {"session_id": st.session_state.session_id, "message": q}
-                                chat_resp = requests.post(f"{API_URL}/session/chat", json=chat_payload)
-                                if chat_resp.status_code == 200:
-                                    reply = chat_resp.json().get("reply", "")
-                                    st.session_state.chat_history.append({"role": "assistant", "content": reply})
-                                    st.rerun()
-                            except Exception as e:
-                                st.error("Chat engine unavailable.")
                 
         user_input = st.chat_input("E.g. What kind of spender am I?")
         if user_input:
