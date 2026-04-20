@@ -1,9 +1,10 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from .services.parser import parse_excel
+from .services.parser import parse_excel, extract_merchant
 from .services.categorizer import categorize_transactions
 from .services.analyzer import analyze_transactions
 from .services.ai_engine import generate_insights, chat_with_context, generate_top_banner
+from .services.merchant_cleaner import clean_merchant_name
 from .services.storage import (
     generate_file_hash, check_duplicate_session, create_session, 
     get_all_sessions, get_session, update_session, update_learned_merchants,
@@ -86,6 +87,47 @@ async def fetch_session(session_id: str):
     data = get_session(session_id)
     if not data:
         raise HTTPException(status_code=404, detail="Session not found")
+    
+    # --- Auto-heal stale sessions ---
+    # Re-clean merchant names and recalculate stats for sessions saved
+    # before merchant_cleaner or total_investment were added.
+    transactions = data.get("transactions", [])
+    needs_update = False
+    
+    # Check if stats are stale (missing total_investment key)
+    stats = data.get("stats", {})
+    if "total_investment" not in stats:
+        needs_update = True
+    
+    # Check if merchants need re-cleaning (look for raw UPI noise)
+    for tx in transactions:
+        merchant = tx.get("merchant", "")
+        # If any merchant contains telltale raw UPI noise, re-clean all
+        if any(noise in merchant.lower() for noise in ["hdfcomerupi", "oksbi", "yesb", "paid via", "elements"]):
+            needs_update = True
+            break
+    
+    if needs_update:
+        # Re-clean all merchant names
+        for tx in transactions:
+            raw_desc = tx.get("description", "")
+            if raw_desc:
+                tx["merchant"] = clean_merchant_name(extract_merchant(raw_desc))
+        
+        # Re-categorize with cleaned merchants
+        transactions = categorize_transactions(transactions)
+        
+        # Recalculate stats with current analyzer logic
+        stats = analyze_transactions(transactions)
+        data["stats"] = stats
+        data["transactions"] = transactions
+        
+        # Persist the healed data so this only happens once
+        update_session(session_id, {
+            "transactions": transactions,
+            "stats": stats
+        })
+    
     return {"data": data}
 
 @app.post("/session/insights")

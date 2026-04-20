@@ -39,6 +39,15 @@ def call_openrouter(messages: list[dict]) -> str:
     return "⚠️ The AI service is currently rate-limited. Please wait a moment and try again."
 
 
+def _short_merchant(name: str) -> str:
+    """Shorten a merchant name to max 3 words for clean LLM context."""
+    noise = {"upi", "neft", "imps", "pvt", "ltd", "pv", "brk", "valid", "paid", "via", "elements", "dr", "cr"}
+    words = name.strip().split()
+    # Drop words that are purely noise (digits, bank codes, UPI ids, short tokens)
+    clean = [w for w in words if not w.replace(",", "").isdigit() and len(w) > 1 and w.lower() not in noise]
+    return " ".join(clean[:2]).title() if clean else name.title()
+
+
 def _build_financial_context(stats: dict) -> str:
     """Build a rich financial context string from stats for AI consumption."""
     cat_totals = stats.get('category_totals', {})
@@ -51,13 +60,13 @@ def _build_financial_context(stats: dict) -> str:
     
     top_lifestyle = stats.get('top_lifestyle_merchants', [])
     lifestyle_lines = "\n".join([
-        f"  - {m['merchant']}: ₹{m['amount']:,.0f} ({m['count']} txns, category: {m.get('category', 'Other')})"
+        f"  - {_short_merchant(m['merchant'])}: ₹{m['amount']:,.0f} ({m['count']} txns, category: {m.get('category', 'Other')})"
         for m in top_lifestyle
     ]) or "  None detected"
     
     top_overall = stats.get('top_merchants', [])
     overall_lines = "\n".join([
-        f"  - {m['merchant']}: ₹{m['amount']:,.0f} ({m['count']} txns, category: {m.get('category', 'Other')})"
+        f"  - {_short_merchant(m['merchant'])}: ₹{m['amount']:,.0f} ({m['count']} txns, category: {m.get('category', 'Other')})"
         for m in top_overall
     ]) or "  None detected"
     
@@ -111,20 +120,21 @@ CRITICAL RULES:
 2. Only warn about LIFESTYLE overspending (Food, Shopping, Entertainment, Travel).
 3. Always use ₹ (Rupees), NEVER dollars.
 4. Use the exact numbers from the data. Never invent merchants or amounts.
-5. Sound like a human advisor, not a corporate report."""
+5. Sound like a human advisor, not a corporate report.
+6. MERCHANT NAMES: Use SHORT, clean brand names only (e.g. "Groww", "Zomato", "Amazon"). NEVER paste raw UPI transaction strings, bank codes, or reference numbers. If a merchant name looks like "Groww Invest Tech Pv", just say "Groww"."""
 
     user_prompt = f"""
 {context}
 
 Based on this financial data, provide a sharp analysis in EXACTLY this format:
 
-📊 **Financial Snapshot**: [1 sentence — state expense ratio and whether they're living within/beyond means]
+🔴 **Alert**: [1 sentence — the single most CRITICAL financial concern. Use CATEGORY names (Food, Shopping) not raw merchant strings. Include the ₹ amount.]
 
-🟢 **Strength**: [1 sentence — highlight their best financial habit, e.g. strong investments or low food spending. Be specific with ₹ amounts.]
+⚠️ **Why this matters**: [1 sentence — explain the real-world impact of this concern on their financial health.]
 
-🔴 **Concern**: [1 sentence — identify the biggest LIFESTYLE drain (NOT investments). Name the specific category or merchant with ₹ amount.]
+🟢 **Action**: [1 specific, actionable step with an exact ₹ amount to cut from a specific CATEGORY to fix the problem.]
 
-🎯 **Action**: [1 concrete, specific action — e.g. "Cut Shopping spending by ₹X/month to achieve positive savings." Use real numbers from the data.]
+🎯 **Goal**: [1 sentence — what achieving this action would result in. E.g. "This would bring your expense ratio from 106% to 92%, putting you back in the green."]
 """
 
     messages = [

@@ -5,6 +5,7 @@ __pycache__/
 
 # Virtual env
 venv/
+frontend/demo_statement.xlsx
 
 # Data (keep folders, ignore contents)
 backend/data/**
