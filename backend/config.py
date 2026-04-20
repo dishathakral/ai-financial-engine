@@ -5,5 +5,4 @@ load_dotenv(override=True)
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-# print("🔥 CONFIG LOADED:", OPENROUTER_API_KEY)
 
