@@ -8,7 +8,6 @@
 🚀 **Live Demo:** [ai-financial-engine.streamlit.app](https://ai-financial-engine.streamlit.app)  
 📄 **Try Sample File:** [Download Demo Statement](./frontend/demo_statement.xlsx)
 
----
 
 ## ⚡ How it works
 
@@ -22,7 +21,13 @@
 
 Shows income, expenses, savings, and expense ratio with instant alerts.
 
-![Dashboard](assets/dashboard.png)
+![Dashboard Overview](assets/dashboard1.png)
+
+### Actionable Alerts & Breakdown
+![Alerts and Breakdown](assets/dashboard2.png)
+
+### Transaction Management
+![Transaction History](assets/dashboard3.png)
 
 ## 💬 AI Financial Assistant
 
