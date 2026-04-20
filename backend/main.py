@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .services.parser import parse_excel
 from .services.categorizer import categorize_transactions
 from .services.analyzer import analyze_transactions
-from .services.ai_engine import generate_insights, chat_with_context
+from .services.ai_engine import generate_insights, chat_with_context, generate_top_banner
 from .services.storage import (
     generate_file_hash, check_duplicate_session, create_session, 
     get_all_sessions, get_session, update_session, update_learned_merchants,

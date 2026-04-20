@@ -12,7 +12,7 @@ API_URL = os.getenv(
     "http://localhost:8000"   # fallback for local
 )
 
-st.write("API URL:", API_URL)
+# st.write("API URL:", API_URL)
 # Modern styling override (for hackathon wow-factor)
 st.markdown("""
 <style>
@@ -205,19 +205,51 @@ if st.session_state.session_id and st.session_state.transactions:
                     
     st.divider()
     
-    col1, col2, col3 = st.columns(3)
-    
     stats = st.session_state.stats
     income = stats.get("total_income", 0)
     expense = stats.get("total_expense", 0)
     savings = stats.get("savings", 0)
+    total_investment = stats.get("total_investment", 0)
+    expense_ratio = stats.get("expense_ratio", 0)
     
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f'<div class="metric-card"><div class="metric-label">Total Income</div><div class="metric-value">₹{income:,.2f}</div></div>', unsafe_allow_html=True)
     with col2:
         st.markdown(f'<div class="metric-card" style="border-bottom: 3px solid #ff4b4b"><div class="metric-label">Total Expense</div><div class="metric-value" style="color: #ff4b4b">₹{expense:,.2f}</div></div>', unsafe_allow_html=True)
     with col3:
         st.markdown(f'<div class="metric-card" style="border-bottom: 3px solid #00c0f2"><div class="metric-label">Net Savings</div><div class="metric-value" style="color: #00c0f2">₹{savings:,.2f}</div></div>', unsafe_allow_html=True)
+    
+    # Row 2: Investment + Expense Ratio
+    col4, col5 = st.columns(2)
+    with col4:
+        inv_color = "#4ade80" if total_investment > 0 else "#888"
+        st.markdown(f'<div class="metric-card" style="border-bottom: 3px solid {inv_color}"><div class="metric-label">💰 Investments</div><div class="metric-value" style="color: {inv_color}">₹{total_investment:,.2f}</div></div>', unsafe_allow_html=True)
+    with col5:
+        ratio_color = "#4ade80" if expense_ratio <= 100 else "#ff4b4b"
+        st.markdown(f'<div class="metric-card" style="border-bottom: 3px solid {ratio_color}"><div class="metric-label">📊 Expense Ratio</div><div class="metric-value" style="color: {ratio_color}">{expense_ratio:.1f}%</div></div>', unsafe_allow_html=True)
+    
+    # ⭐ TOP INSIGHT BANNER — the WOW scannable feature
+    investment_ratio = stats.get("investment_ratio", 0)
+    if expense_ratio > 100:
+        if investment_ratio > 30:
+            banner_text = f"⚠️ You're spending {expense_ratio - 100:.0f}% more than you earn, despite strong investment habits (₹{total_investment:,.0f}). Rebalancing is critical."
+        else:
+            banner_text = f"🔴 Your expenses exceed income by ₹{abs(savings):,.0f}. Expense ratio is {expense_ratio:.0f}% — immediate action needed."
+    elif expense_ratio > 90:
+        banner_text = f"⚠️ You're saving only {100 - expense_ratio:.0f}% of your income. One unexpected expense could tip you into deficit."
+    elif investment_ratio > 40:
+        banner_text = f"🟢 Strong financial discipline — ₹{total_investment:,.0f} allocated to investments ({investment_ratio:.0f}% of spending). Savings: ₹{savings:,.0f}."
+    else:
+        banner_text = f"🟢 Healthy finances — saving ₹{savings:,.0f} ({100 - expense_ratio:.0f}% of income). Keep it up."
+    
+    banner_bg = "#1a1a2e" if savings >= 0 else "#2d1117"
+    banner_border = "#4ade80" if savings >= 0 else "#ff4b4b"
+    st.markdown(f"""
+    <div style="background: {banner_bg}; border-left: 4px solid {banner_border}; padding: 16px 20px; border-radius: 8px; margin: 12px 0; font-size: 1.1rem;">
+        {banner_text}
+    </div>
+    """, unsafe_allow_html=True)
     
     st.divider()
     
@@ -285,16 +317,27 @@ if st.session_state.session_id and st.session_state.transactions:
             old_txs = st.session_state.transactions
             new_txs = edited_df.to_dict('records')
             
+            # PROTECT: Force all credit transactions back to Income — no overrides allowed
+            for tx in new_txs:
+                if tx.get("type") == "credit":
+                    tx["category"] = "Income"
+                    tx["confidence"] = "100% (Deterministic)"
+            
             changes = {}
             for old_tx, new_tx in zip(old_txs, new_txs):
+                # Skip credit transactions — their category is locked to Income
+                if old_tx.get("type") == "credit":
+                    continue
                 if old_tx.get('category') != new_tx.get('category'):
                     merch = old_tx.get('merchant')
                     new_cat = new_tx.get('category')
                     changes[merch] = new_cat
             
             if changes:
-                # Propagate changes strictly via merchant
+                # Propagate changes strictly via merchant (debits only)
                 for tx in new_txs:
+                    if tx.get("type") == "credit":
+                        continue
                     merch = tx.get('merchant')
                     if merch in changes:
                         tx['category'] = changes[merch]

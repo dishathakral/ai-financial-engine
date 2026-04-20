@@ -13,8 +13,51 @@ KNOWN_MERCHANTS = {
     "netflix": "Entertainment",
     "spotify": "Entertainment",
     "jio": "Bills",
-    "airtel": "Bills"
+    "airtel": "Bills",
+    "flipkart": "Shopping",
+    "myntra": "Shopping",
+    "bigbasket": "Grocery",
+    "dunzo": "Grocery",
+    "rapido": "Travel",
+    "hotstar": "Entertainment",
+    "youtube": "Entertainment",
+    "phonepe": "Bills",
+    "cred": "Bills"
 }
+
+# 2-layer investment detection: brand keywords + financial patterns
+INVESTMENT_KEYWORDS = [
+    "groww", "zerodha", "kuvera", "coin", "upstox", "angelone",
+    "angel broking", "motilal", "icicidirect", "smallcase",
+    "et money", "paytm money", "5paisa", "dhan", "fi money",
+    "icici prudential", "sbi life", "hdfc life", "lic", "bajaj finserv",
+    "axis mutual", "hdfc mutual", "sbi mutual", "kotak mutual",
+    "nippon", "tata mutual", "mirae", "dsp mutual", "franklin templeton"
+]
+
+INVESTMENT_PATTERNS = [
+    "sip", "mutual fund", "mf purchase", "mf sip", "nse purchase",
+    "amc debit", "nfo", "elss", "ppf", "nps", "systematic investment",
+    "mf auto", "auto sip"
+]
+
+
+def is_investment(merchant: str) -> bool:
+    """2-layer investment detection: keyword match + pattern match."""
+    m_lower = merchant.lower()
+    
+    # Layer 1: Brand keyword match
+    for keyword in INVESTMENT_KEYWORDS:
+        if keyword in m_lower:
+            return True
+    
+    # Layer 2: Financial pattern match
+    for pattern in INVESTMENT_PATTERNS:
+        if pattern in m_lower:
+            return True
+    
+    return False
+
 
 def categorize_transaction(merchant: str) -> dict:
     merchant_lower = merchant.lower()
@@ -24,12 +67,16 @@ def categorize_transaction(merchant: str) -> dict:
     if merchant_lower in learned:
         return {"category": learned[merchant_lower], "confidence": "100% (Learned Mapping)"}
     
+    # Priority 1.5: Investment Detection (2-layer)
+    if is_investment(merchant_lower):
+        return {"category": "Investments", "confidence": "95% (Investment Match)"}
+    
     # Priority 2: Rule-based
     for known_merchant, category in KNOWN_MERCHANTS.items():
         if known_merchant in merchant_lower:
             return {"category": category, "confidence": "95% (Rule Match)"}
             
-    # 2. LLM fallback
+    # Priority 3: LLM fallback
     if OPENROUTER_API_KEY and OPENROUTER_API_KEY != "your_openrouter_api_key_here":
         try:
             url = "https://openrouter.ai/api/v1/chat/completions"
@@ -40,7 +87,7 @@ def categorize_transaction(merchant: str) -> dict:
             payload = {
                 "model": "openai/gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "You are a financial categorizer. Given a merchant name derived from a bank statement, reply with ONLY ONE WORD representing the category (e.g. Food, Travel, Shopping, Bills, Health, Education, Other). Do not add any extra text."},
+                    {"role": "system", "content": "You are a financial categorizer. Given a merchant name from a bank statement, reply with ONLY ONE WORD: Food, Travel, Shopping, Bills, Health, Education, Entertainment, Grocery, Investments, or Other. Do not add any extra text."},
                     {"role": "user", "content": f"Categorize this merchant: '{merchant}'"}
                 ]
             }

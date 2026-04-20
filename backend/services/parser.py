@@ -1,6 +1,7 @@
 import pandas as pd
 import io
 import re
+from .merchant_cleaner import clean_merchant_name
 
 COLUMN_MAP = {
     "date": ["date", "txn date", "value date", "transaction date"],
@@ -133,7 +134,7 @@ def parse_excel(file_bytes: bytes, password: str = None) -> list[dict]:
                 transactions.append({
                     "date": date,
                     "description": desc,
-                    "merchant": extract_merchant(desc),
+                    "merchant": clean_merchant_name(extract_merchant(desc)),
                     "amount": round(amount, 2),
                     "type": type_
                 })

@@ -23,7 +23,7 @@ def call_openrouter(messages: list[dict]) -> str:
         try:
             response = requests.post(url, headers=headers, json=payload, timeout=30)
             if response.status_code == 429:
-                wait_time = (attempt + 1) * 3  # 3s, 6s, 9s
+                wait_time = (attempt + 1) * 3
                 time.sleep(wait_time)
                 continue
             response.raise_for_status()
@@ -38,31 +38,95 @@ def call_openrouter(messages: list[dict]) -> str:
     
     return "⚠️ The AI service is currently rate-limited. Please wait a moment and try again."
 
+
+def _build_financial_context(stats: dict) -> str:
+    """Build a rich financial context string from stats for AI consumption."""
+    cat_totals = stats.get('category_totals', {})
+    cat_pcts = stats.get('category_percentages', {})
+    
+    category_breakdown = "\n".join([
+        f"  - {cat}: ₹{amt:,.0f} ({cat_pcts.get(cat, 0)}%)" 
+        for cat, amt in cat_totals.items()
+    ])
+    
+    top_lifestyle = stats.get('top_lifestyle_merchants', [])
+    lifestyle_lines = "\n".join([
+        f"  - {m['merchant']}: ₹{m['amount']:,.0f} ({m['count']} txns, category: {m.get('category', 'Other')})"
+        for m in top_lifestyle
+    ]) or "  None detected"
+    
+    top_overall = stats.get('top_merchants', [])
+    overall_lines = "\n".join([
+        f"  - {m['merchant']}: ₹{m['amount']:,.0f} ({m['count']} txns, category: {m.get('category', 'Other')})"
+        for m in top_overall
+    ]) or "  None detected"
+    
+    return f"""
+Income: ₹{stats.get('total_income', 0):,.2f}
+Total Expense: ₹{stats.get('total_expense', 0):,.2f}
+Savings: ₹{stats.get('savings', 0):,.2f}
+Expense Ratio: {stats.get('expense_ratio', 0)}% (< 100% = healthy, > 100% = danger)
+
+Investments: ₹{stats.get('total_investment', 0):,.2f} ({stats.get('investment_ratio', 0)}% of expenses)
+Lifestyle Expense (non-investment): ₹{stats.get('lifestyle_expense', 0):,.2f}
+
+Category Breakdown:
+{category_breakdown}
+
+Top Lifestyle Spenders (non-investment):
+{lifestyle_lines}
+
+Top Overall Spenders:
+{overall_lines}
+"""
+
+
+def generate_top_banner(stats: dict) -> str:
+    """Generate a single-line top insight banner for the UI."""
+    expense_ratio = stats.get('expense_ratio', 0)
+    savings = stats.get('savings', 0)
+    investment_ratio = stats.get('investment_ratio', 0)
+    total_investment = stats.get('total_investment', 0)
+    
+    if expense_ratio > 100:
+        if investment_ratio > 30:
+            return f"⚠️ You're spending {expense_ratio - 100:.0f}% more than you earn, despite strong investment habits (₹{total_investment:,.0f}). Rebalancing is critical."
+        else:
+            return f"🔴 Your expenses exceed income by ₹{abs(savings):,.0f}. Expense ratio is {expense_ratio:.0f}% — immediate action needed."
+    elif expense_ratio > 90:
+        return f"⚠️ You're saving only {100 - expense_ratio:.0f}% of your income. One unexpected expense could tip you into deficit."
+    elif investment_ratio > 40:
+        return f"🟢 Strong financial discipline — ₹{total_investment:,.0f} allocated to investments ({investment_ratio:.0f}% of spending). Savings: ₹{savings:,.0f}."
+    else:
+        return f"🟢 Healthy finances — saving ₹{savings:,.0f} ({100 - expense_ratio:.0f}% of income). Keep it up."
+
+
 def generate_insights(stats: dict) -> str:
-    system_prompt = "You are an expert AI financial decision engine. Use ONLY the provided merchants and numbers. Do not invent data, hallucinate merchants, or guess numbers not in the payload. Your decisions must be deterministic."
+    context = _build_financial_context(stats)
     
-    top_dominance = stats.get('top_merchant_dominance', 0)
-    top_merch_list = stats.get('top_merchants', [])
-    top_name = top_merch_list[0]['merchant'] if top_merch_list else 'Unknown'
-    
+    system_prompt = """You are an elite AI Financial Advisor — not a template robot. You speak with confidence, warmth, and brutal honesty like a trusted friend who happens to be a finance expert.
+
+CRITICAL RULES:
+1. Investments (Groww, Zerodha, SIPs, Mutual Funds) are NOT wasteful spending. NEVER say "reduce spending on investments."
+2. Only warn about LIFESTYLE overspending (Food, Shopping, Entertainment, Travel).
+3. Always use ₹ (Rupees), NEVER dollars.
+4. Use the exact numbers from the data. Never invent merchants or amounts.
+5. Sound like a human advisor, not a corporate report."""
+
     user_prompt = f"""
-    Context Data:
-    Income: ₹ {stats.get('total_income', 0):,.2f}
-    Expense: ₹ {stats.get('total_expense', 0):,.2f}
-    Top merchants (Actionable Entities): {json.dumps(top_merch_list, indent=2)}
-    Top merchant expense dominance: {top_dominance}%
-    
-    Format your response EXACTLY like this (using markdown):
-    
-    🔴 **Alert**: [State exactly what merchant is dominating their expenses cleanly separated by spaces. Example: "You are overspending heavily on {top_name}."]
-    
-    ⚠️ **Why this matters**: [State functionally why this destroys their wealth. Example: "This single merchant alone is driving your financial imbalance."]
-    
-    🟢 **Action**: [Provide a literal, confident physical action using exactly ₹ (Rupees), NEVER Dollars].
-    
-    🎯 **Goal**: [Calculate 50% of the top merchant's amount and tell them to reduce spending on {top_name} by that exact ₹ amount to reach stability]
-    """
-    
+{context}
+
+Based on this financial data, provide a sharp analysis in EXACTLY this format:
+
+📊 **Financial Snapshot**: [1 sentence — state expense ratio and whether they're living within/beyond means]
+
+🟢 **Strength**: [1 sentence — highlight their best financial habit, e.g. strong investments or low food spending. Be specific with ₹ amounts.]
+
+🔴 **Concern**: [1 sentence — identify the biggest LIFESTYLE drain (NOT investments). Name the specific category or merchant with ₹ amount.]
+
+🎯 **Action**: [1 concrete, specific action — e.g. "Cut Shopping spending by ₹X/month to achieve positive savings." Use real numbers from the data.]
+"""
+
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt}
@@ -70,35 +134,32 @@ def generate_insights(stats: dict) -> str:
     
     return call_openrouter(messages)
 
+
 def chat_with_context(user_message: str, stats: dict, chat_history: list = None) -> str:
     if chat_history is None:
         chat_history = []
-        
-    top_categories = list(stats.get('category_totals', {}).items())[:2]
     
-    clean_stats = f"""
-    Income: ₹ {stats.get('total_income', 0):,.2f}
-    Expense: ₹ {stats.get('total_expense', 0):,.2f}
-    Top Categories: {json.dumps(top_categories, indent=2)}
-    Top Merchants (with frequency counts): {json.dumps(stats.get('top_merchants', []), indent=2)}
-    Merchant Dominance: {stats.get('top_merchant_dominance', 0)}%
-    Expense Ratio: {stats.get('expense_ratio', 0)}%
-    """
+    context = _build_financial_context(stats)
         
-    system_prompt = f"""You are an elite, razor-sharp AI Financial Analyst. You speak fluently and intelligently, not like a template robot.
+    system_prompt = f"""You are an elite, razor-sharp AI Financial Advisor. You speak fluently and intelligently — like a trusted friend who's brilliant with money.
 
-[STRICT DATA PAYLOAD]
-{clean_stats}
+[FINANCIAL DATA]
+{context}
 
 [CORE DIRECTIVES]
-1. CONVERSATIONAL FLUIDITY: Speak naturally and dynamically. NEVER use rigid templates or robotic summaries.
-2. BRUTALLY HONEST & DIRECT: Use strong, definitive verbs. Do not use weak words like "suggests", "indicates", or "consider". NEVER use the phrase "In short".
-3. DATA-DRIVEN IMPACT: Ground your claims heavily in the detailed payload. Provide distinct math (e.g., cutting a specific merchant by X%) when asked about saving. Always use ₹. Avoid focusing on the 'Other' category unless specifically queried.
-4. CONCISENESS: Keep answers to exactly 2-3 sentences max. Get straight to the intelligence without preamble.
-5. RESPONSIVENESS: 
-   - If they ask something generic like "give me questions to ask", provide 3 highly engaging, specific questions targeting their exact merchants.
-   - If they ask about habits, explicitly cite their transaction frequency counts.
-6. STRIKING CLOSING: Do NOT use summary formats. End simply with a punchy, confident assessment (e.g., "Chirpy iOS is single-handedly causing your deficit.") linked to the data.
+1. CATEGORY INTELLIGENCE: When asked about spending, ALWAYS break down by category with percentages. Never just list merchants.
+2. INVESTMENT AWARENESS: Investments (Groww, Zerodha, SIPs, Mutual Funds) are wealth-building, NOT wasteful spending. Praise this discipline when relevant. Only warn about lifestyle categories.
+3. EXPENSE RATIO MASTERY: The expense ratio ({stats.get('expense_ratio', 0)}%) is the single most important metric. < 100% = healthy. > 100% = danger. Reference it when discussing financial health.
+4. BRUTALLY HONEST & DIRECT: Use strong, definitive language. Not "consider reducing" but "cut ₹X from Shopping immediately."
+5. CONCISENESS: Keep answers to 2-4 sentences max. No preamble, no summaries.
+6. DATA-GROUNDED: Every claim must cite a specific ₹ amount or percentage from the data. Never generalize.
+7. ACTIONABLE: When asked "how to save", give specific ₹ amounts to cut from specific categories.
+8. Always use ₹ (Rupees). Never dollars.
+
+EXAMPLE RESPONSES:
+- "Where am I spending most?" → "Your biggest expense category is Investments at ₹57,000 (50% of spending), which is wealth-building. Your largest lifestyle drain is Shopping at ₹12,000 (11%). Food follows at ₹8,500 (7.5%)."
+- "How can I save?" → "Cut Shopping by ₹5,000/month (40% reduction) and you'll flip from -₹6,499 to +₹3,500 in savings. Your Food at ₹8,500 has room for a ₹2,000 trim too."
+- "Am I doing good?" → "Your expense ratio is 106% — you're spending more than you earn. However, ₹57,000 in investments shows strong discipline. The issue is lifestyle spending at ₹55,000."
 """
     
     messages = [{"role": "system", "content": system_prompt}]
