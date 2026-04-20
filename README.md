@@ -1,19 +1,58 @@
+![Python](https://img.shields.io/badge/Python-3.9+-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green)
+![Streamlit](https://img.shields.io/badge/Streamlit-Frontend-red)
 # 💸 AI Financial Intelligence System
 
-> **A professional-grade, AI-powered financial decision engine that transforms unstructured bank statements into actionable wealth-building insights.**
+> Upload your bank statement → get categorized spending, financial health score, and AI advice in seconds.
 
-🔗 **[Live Demo](https://ai-financial-engine.streamlit.app)** | 📥 **[Download Demo Statement](./frontend/demo_statement.xlsx)**
+🚀 **Live Demo:** [ai-financial-engine.streamlit.app](https://ai-financial-engine.streamlit.app)  
+📄 **Try Sample File:** [Download Demo Statement](./frontend/demo_statement.xlsx)
 
+---
 
-## 🎯 The Problem
+## ⚡ How it works
 
-Bank statements are a mess of cryptographic reference numbers (e.g., `UPI GROWW INVEST TECH PV... PAID VIA ELEMENTS`), making it impossible for average users to understand their financial health. Even if they parse the data, traditional budgeting apps treat all spending equally—failing to distinguish between wealth-building investments and wasteful lifestyle spending.
+1. **Upload bank statement** (Excel)
+2. **AI cleans + categorizes** transactions
+3. **Get dashboard + financial insights + chat assistant**
 
-## 💡 The Solution
+---
 
-We've built an AI agentic workflow that doesn't just parse data—it understands context. By leveraging modern LLMs, rule-based algorithms, and smart data cleaning, this engine provides a human-like financial advisor experience.
+## 📊 Dashboard Preview
 
-### ✨ Key Innovations
+Shows income, expenses, savings, and expense ratio with instant alerts.
+
+![Dashboard](assets/dashboard.png)
+
+## 💬 AI Financial Assistant
+
+Receive mathematically grounded advice based on your exact saving & spending ratios.
+
+![Chat](assets/chat.png)
+
+---
+
+## 🌍 Why this matters
+
+### The Reality Today
+- Bank statements are unreadable (UPI noise, codes, references)
+- No distinction between investments vs expenses
+- No actionable insights
+
+### What we built
+An AI system that understands financial context — not just transactions. It turns raw financial data into **decision intelligence**.
+
+---
+
+## 🧠 Self-Learning System
+
+**Edit any transaction category → the system remembers your preference and improves over time.**
+
+No retraining. No config. Just usage. If you categorize a specific vendor as an Investment once, the system respects and overrides default behaviors for all future uploads.
+
+---
+
+## ✨ Key Innovations
 
 1. **Investment-Aware AI Engine**: Traditional apps view a `₹50,000` outflow as a "high expense." Our engine distinguishes between a wealth-building SIP (categorized as *Investments*) and a luxury purchase, calculating an intelligent **Expense Ratio** to assess true financial health.
 2. **Tri-Layer Categorization**:
@@ -48,7 +87,7 @@ graph TD
 
 ---
 
-## 🚀 Technical Execution
+## ⚙️ Tech Stack
 
 - **Backend**: FastAPI (Python) - High-performance, async API.
 - **Frontend**: Streamlit - Rapid, reactive UI prototyping.
@@ -63,7 +102,6 @@ Want to run it locally? It takes less than 2 minutes.
 
 ### Prerequisites
 - Python 3.9+
-- An [OpenRouter API Key](https://openrouter.ai/) (for the AI features)
 
 ### 1. Clone & Install
 ```bash
@@ -78,11 +116,12 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment
+### 2. 🔐 Environment Variables
+Create a `.env` file in the root directory:
 ```bash
-cp .env.example .env
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+OPENROUTER_BASE_URL=https://api.openrouter.ai
 ```
-Edit `.env` and add your OpenRouter API key.
 
 ### 3. Run the System
 
@@ -106,3 +145,12 @@ This prototype is just the foundation. If funded or scaled, the architecture is 
 - **Banking Aggregator API Integration**: Moving beyond Excel uploads to real-time sync via Open Banking (Account Aggregator framework in India).
 - **Proactive Alerts**: Pushing notifications when lifestyle spending exceeds the calculated safe threshold *before* the month ends.
 - **Predictive Cashflow**: Analyzing recurring transaction patterns to forecast next month's necessary balance.
+
+---
+
+## 🏁 Final Thought
+
+This isn’t just a budgeting tool.
+
+It’s a **financial decision intelligence system**  
+that helps users move from tracking money → to understanding it.
