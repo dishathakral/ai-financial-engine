@@ -23,12 +23,6 @@ Shows income, expenses, savings, and expense ratio with instant alerts.
 
 ![Dashboard Overview](assets/dashboard1.png)
 
-### Actionable Alerts & Breakdown
-![Alerts and Breakdown](assets/dashboard2.png)
-
-### Transaction Management
-![Transaction History](assets/dashboard3.png)
-
 ## 💬 AI Financial Assistant
 
 Receive mathematically grounded advice based on your exact saving & spending ratios.
